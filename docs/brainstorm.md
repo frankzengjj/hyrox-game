@@ -5,6 +5,7 @@ Status: early brainstorm. Open questions are at the bottom.
 ## Decisions
 
 - **Realistic 2D** (decided). Everything is side view in a race-day arena. The athlete is a shaded cut-out rig (thighs, shins, arms, torso, head) posed with inverse kinematics, and all art is drawn in code on canvases. Runs scroll the arena past the camera, with a minimap for laps.
+- **Working title: Pace Yourself** (decided for the published build). HYROX is a trademark, so the game itself doesn't use the name.
 - **Rhythm runs** (decided): tap left/right on every footstrike at the cadence of your pace level. Form (rolling step quality) scales speed and energy cost.
 - **Rhythm stations, and they should be hard** (decided). Each stroke or rep is a hold note: press on its start, release on its end, to a metronome. Tight timing windows get tighter as the athlete tires. You pick the tempo (faster = more work per minute and more lactate), stopping ends the set so you can rest, and at high lactate the notes fade before the hit line ("tunnel vision").
 

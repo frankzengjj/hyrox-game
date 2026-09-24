@@ -1,6 +1,6 @@
 # hyrox-game
 
-A 2D browser game where you race a full Hyrox-style fitness competition (8 × 1 km runs + 8 workout stations) using mouse and keyboard. Pacing is the game: go out too hard and you pay for it at the wall balls.
+**Pace Yourself** (working title): a 2D browser game where you race a full Hyrox-style fitness competition (8 × 1 km runs + 8 workout stations) using mouse and keyboard. Pacing is the game: go out too hard and you pay for it at the wall balls.
 
 Design notes and roadmap: [docs/brainstorm.md](docs/brainstorm.md).
 
@@ -32,6 +32,8 @@ npm run dev        # http://localhost:5173
 npm test           # unit tests (simulation + balance)
 npm run build      # typecheck + production build into dist/
 ```
+
+`npm run build` produces a static site in `dist/` with relative paths, so it can be hosted anywhere (a claude.ai artifact, GitHub Pages, Netlify and so on).
 
 Debug URL options (combine them with `&`):
 

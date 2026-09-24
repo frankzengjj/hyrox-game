@@ -47,7 +47,7 @@ export class MenuScene extends Phaser.Scene {
     this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x07080a, 0.8).setOrigin(0);
     addShadow(this, 905);
     this.hero = new AthleteRig(this);
-    this.add.text(WIDTH / 2, 44, 'HYROX GAME', textStyle(52, hex(COLORS.accent), { fontStyle: 'bold' })).setOrigin(0.5, 0);
+    this.add.text(WIDTH / 2, 44, 'PACE YOURSELF', textStyle(52, hex(COLORS.accent), { fontStyle: 'bold' })).setOrigin(0.5, 0);
     this.add.text(WIDTH / 2, 108, '8 × 1 km run  +  8 stations.  Pace yourself.', textStyle(18, '#d0d3d8')).setOrigin(0.5, 0);
 
     this.rowLabels = [];
