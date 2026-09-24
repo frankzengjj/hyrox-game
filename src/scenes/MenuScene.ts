@@ -1,11 +1,16 @@
 import * as Phaser from 'phaser';
 import { DIVISIONS, WEIGHTS, type Category, type DivisionId } from '../config/divisions';
+import { standPose } from '../art/poses';
+import { AthleteRig } from '../art/rig';
+import { STAGE } from '../art/stage';
+import { addShadow, addVenue } from '../art/venue';
+import { unlockAudio } from '../audio';
 import { STATIONS } from '../config/stations';
 import { formatClock } from '../sim/format';
 import { Session } from '../sim/session';
 import { loadPb } from '../storage';
-import { COLORS, WIDTH, hex, textStyle } from '../ui/theme';
-import { goToCurrentSegment } from './flow';
+import { COLORS, HEIGHT, WIDTH, hex, textStyle } from '../ui/theme';
+import { UNOFFICIAL, goToCurrentSegment } from './flow';
 import { DEFAULT_RUN_LEVEL } from './RunScene';
 
 interface Option<T> {
@@ -30,6 +35,7 @@ export class MenuScene extends Phaser.Scene {
   private rowLabels: Phaser.GameObjects.Text[] = [];
   private stationWeights: Phaser.GameObjects.Text[] = [];
   private pbText!: Phaser.GameObjects.Text;
+  private hero!: AthleteRig;
 
   constructor() {
     super('Menu');
@@ -37,6 +43,10 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     const muted = hex(COLORS.muted);
+    addVenue(this);
+    this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x07080a, 0.8).setOrigin(0);
+    addShadow(this, 905);
+    this.hero = new AthleteRig(this);
     this.add.text(WIDTH / 2, 44, 'HYROX GAME', textStyle(52, hex(COLORS.accent), { fontStyle: 'bold' })).setOrigin(0.5, 0);
     this.add.text(WIDTH / 2, 108, '8 × 1 km run  +  8 stations.  Pace yourself.', textStyle(18, '#d0d3d8')).setOrigin(0.5, 0);
 
@@ -54,21 +64,20 @@ export class MenuScene extends Phaser.Scene {
     });
     this.stationWeights = STATIONS.map((_, i) => this.add.text(360, rowY(i), '', textStyle(14, muted)));
 
-    this.add.text(560, 262, 'CONTROLS', textStyle(12, muted, { fontStyle: 'bold' }));
-    this.add.text(
-      560,
-      284,
-      [
-        'Run       W / S or wheel: pace',
-        '          hold SHIFT: surge',
-        'Roxzone   hold W: jog',
-        'Stations  hold SPACE / mouse: work',
-        '',
-        'Watch your heart rate and lactate.',
-        'Go out too hard and you pay later.',
-      ].join('\n'),
-      { ...textStyle(14, '#d0d3d8'), lineSpacing: 6 },
-    );
+    this.add.text(540, 262, 'CONTROLS', textStyle(12, muted, { fontStyle: 'bold' }));
+    const controls: [string, string][] = [
+      ['Run', 'W / S or wheel: pace · SHIFT: surge'],
+      ['Roxzone', 'hold W: jog'],
+      ['SkiErg', 'rhythm: press on ●, release on ◆'],
+      ['Wall Balls', 'W / S: tempo · stop playing to rest'],
+      ['Others', 'hold SPACE / mouse to work'],
+      ['Sound', 'M: mute'],
+    ];
+    controls.forEach(([label, value], i) => {
+      this.add.text(540, 284 + i * 21, label, textStyle(13, hex(COLORS.accent)));
+      this.add.text(622, 284 + i * 21, value, textStyle(13, '#d0d3d8'));
+    });
+    this.add.text(540, 420, 'Tired athletes get tighter timing windows:\ngo out too hard and you pay later.', textStyle(12, muted));
 
     this.pbText = this.add.text(WIDTH / 2, 470, '', textStyle(14, muted)).setOrigin(0.5);
     const start = this.add
@@ -135,8 +144,15 @@ export class MenuScene extends Phaser.Scene {
     this.pbText.setText(pb === undefined ? 'No personal best yet in this division' : `Personal best: ${formatClock(pb)}`);
   }
 
+  update(time: number): void {
+    this.hero.setPose(standPose(905, STAGE.floorY, time / 1000));
+  }
+
   private startRace(): void {
-    this.registry.set('session', new Session(this.division, this.category));
+    unlockAudio();
+    const session = new Session(this.division, this.category);
+    session.unofficial = UNOFFICIAL;
+    this.registry.set('session', session);
     this.registry.set('runLevel', DEFAULT_RUN_LEVEL);
     this.scene.launch('Hud');
     goToCurrentSegment(this);

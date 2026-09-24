@@ -20,11 +20,11 @@ describe('Session', () => {
     expect(session.segment).toEqual({ kind: 'roxzone', index: 0, leg: 'in' });
   });
 
-  it('flags a race with a skipped segment', () => {
+  it('makes a race with a skipped segment unofficial', () => {
     const session = new Session('open', 'women');
-    expect(session.skipped).toBe(false);
+    expect(session.unofficial).toBe(false);
     session.skipSegment();
-    expect(session.skipped).toBe(true);
+    expect(session.unofficial).toBe(true);
     expect(session.segment).toEqual({ kind: 'roxzone', index: 0, leg: 'in' });
   });
 
@@ -58,5 +58,20 @@ describe('race balance', () => {
 
   it('Pro is slower than Open for the same athlete', () => {
     expect(finish(STEADY, 'pro').total).toBeGreaterThan(finish(STEADY, 'open').total);
+  });
+});
+
+describe('Session rhythm API', () => {
+  it('ticks the clock without progress, and completes on added work', () => {
+    const session = new Session('open', 'women');
+    session.skipSegment();
+    session.skipSegment();
+    expect(session.segment).toEqual({ kind: 'station', index: 0 });
+    session.tick(10, 0.85);
+    expect(session.progress).toBe(0);
+    expect(session.race.segmentElapsed).toBe(10);
+    expect(session.addWork(600)).toBe(false);
+    expect(session.addWork(600)).toBe(true);
+    expect(session.race.splits.at(-1)).toMatchObject({ segment: { kind: 'station', index: 0 }, seconds: 10 });
   });
 });

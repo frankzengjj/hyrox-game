@@ -13,8 +13,8 @@ export class Session {
   progress = 0;
   /** Progress per race second on the last step (m/s when moving). */
   rate = 0;
-  /** A segment was skipped (debug), so the result doesn't count. */
-  skipped = false;
+  /** Debug shortcuts were used (skip, fast-forward, autoplay), so the result doesn't count. */
+  unofficial = false;
 
   constructor(
     readonly division: DivisionId,
@@ -41,12 +41,10 @@ export class Session {
     const segment = this.segment;
     if (!segment) return false;
 
-    const loads = this.loadsFor(segment);
-    const capacity = this.athlete.capacity(loads);
-    const difficulty = DIVISIONS[this.division].difficulty;
+    const capacity = this.capacity;
     this.rate =
       segment.kind === 'station'
-        ? stationRate(STATIONS[segment.index], difficulty, effort, capacity)
+        ? stationRate(STATIONS[segment.index], this.difficulty, effort, capacity)
         : runSpeed(effort, capacity);
 
     // Stop the clock exactly at the line rather than at the end of the frame.
@@ -54,17 +52,43 @@ export class Session {
     const done = this.rate * dt >= remaining;
     const used = done ? remaining / this.rate : dt;
 
-    this.athlete.update(used, effort, loads, segment.kind === 'station' ? difficulty : 1);
-    this.race.tick(used);
+    this.tick(used, effort);
     this.progress = done ? this.target : this.progress + this.rate * used;
 
     if (done) this.completeSegment();
     return done;
   }
 
+  /** Moves the clock and the body on by dt race seconds without adding work (rhythm stations score strokes separately). */
+  tick(dt: number, effort: number): void {
+    const segment = this.segment;
+    if (!segment) return;
+    this.athlete.update(dt, effort, this.loadsFor(segment), segment.kind === 'station' ? this.difficulty : 1);
+    this.race.tick(dt);
+  }
+
+  /** Adds station work (m or reps). Returns true when it completes the segment. */
+  addWork(amount: number): boolean {
+    if (!this.segment) return false;
+    this.progress = Math.min(this.target, this.progress + amount);
+    if (this.progress < this.target) return false;
+    this.completeSegment();
+    return true;
+  }
+
+  /** Output multiplier for the current segment's muscles (fatigue, lactate, energy). */
+  get capacity(): number {
+    const segment = this.segment;
+    return segment ? this.athlete.capacity(this.loadsFor(segment)) : 1;
+  }
+
+  get difficulty(): number {
+    return DIVISIONS[this.division].difficulty;
+  }
+
   /** Debug shortcut: ends the current segment now. */
   skipSegment(): void {
-    this.skipped = true;
+    this.unofficial = true;
     this.completeSegment();
   }
 

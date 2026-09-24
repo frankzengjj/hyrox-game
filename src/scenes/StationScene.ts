@@ -1,186 +1,308 @@
 import * as Phaser from 'phaser';
+import { STAGE } from '../art/stage';
+import { type Venue, addStrainOverlay, addVenue } from '../art/venue';
 import { DIVISIONS, WEIGHTS } from '../config/divisions';
+import { RUN_COUNT, TIME_SCALE } from '../config/race';
 import { STATIONS, type StationDef } from '../config/stations';
-import { STATION_REST_EFFORT, STATION_WORK_EFFORT } from '../sim/performance';
+import { click, hitSound } from '../audio';
+import { formatTime } from '../sim/format';
+import {
+  FLOW_EFFORT_SAVING,
+  STATION_REST_EFFORT,
+  STATION_WORK_EFFORT,
+  TEMPO_LEVELS,
+  workPerStroke,
+} from '../sim/performance';
+import { BeatTrack, type Grade, type TrackEvent, windowsFor } from '../sim/rhythm';
+import { RHYTHM_RULES, type RhythmRules } from '../stations/rhythmRules';
+import { Combo, type StrokeOutcome } from '../stations/scoring';
+import { MovementView, SkiErgView, WallBallView } from '../stations/views';
 import { isHeld } from '../ui/heldKeys';
+import { RhythmInput } from '../ui/rhythmInput';
+import { RhythmLane } from '../ui/rhythmLane';
 import { COLORS, hex, textStyle } from '../ui/theme';
+import { AUTOPLAY, getSession } from './flow';
 import { SegmentScene } from './SegmentScene';
 
-const FLOOR = 380;
-const LEFT = 60;
-const RIGHT = 740;
-const BAR_Y = 420;
-/** Work animation cycles per real second. */
-const CYCLE_HZ = 1.4;
-const PROP = 0x4b5160;
+const DEFAULT_TEMPO = 1;
+const COUNT_IN_EFFORT = 0.3;
+const FLOW_WORK_BONUS = 1.05;
+const GRADE_COLORS: Record<Grade, string> = { perfect: hex(COLORS.good), good: '#ffffff', miss: hex(COLORS.bad) };
 
-interface Pose {
-  x: number;
-  /** 0 standing … 1 deep squat. */
-  crouch?: number;
-  /** Torso lean, + forwards (right). */
-  lean?: number;
-  hands: { x: number; y: number };
-  /** Lift off the floor (jumps), px. */
-  lift?: number;
-  /** Seated (rower): hip height and where the feet are. */
-  seat?: { hipY: number; feetX: number };
+interface Rhythm {
+  rules: RhythmRules;
+  track: BeatTrack;
+  combo: Combo;
+  lane: RhythmLane;
+  input: RhythmInput;
+  level: number;
+  tempoBoxes: { box: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }[];
+  comboText: Phaser.GameObjects.Text;
+  clicked: Set<number>;
+  sets: number;
+  /** Recent (race time, metres) samples for the SkiErg monitor's split. */
+  samples: [number, number][];
 }
 
-/**
- * Side-view station. For now every station shares one placeholder mechanic
- * (hold to work, release to rest); the real mini-games replace it station by station.
- */
+/** Side-view station: rhythm mini-game where available, hold-to-work otherwise. */
 export class StationScene extends SegmentScene {
   private def!: StationDef;
-  private gfx!: Phaser.GameObjects.Graphics;
+  private venue!: Venue;
+  private progressBar!: Phaser.GameObjects.Graphics;
   private progressText!: Phaser.GameObjects.Text;
-  private statusText!: Phaser.GameObjects.Text;
-  private phase = 0;
+  private strain!: (lactate: number, hr: number) => void;
+  private rhythm?: Rhythm;
+  private skierg?: SkiErgView;
+  private wallBall?: WallBallView;
+  private movement?: MovementView;
 
   constructor() {
     super('Station');
   }
 
   create(): void {
-    this.beginSegment('hold SPACE or mouse button to work   ·   release to rest and recover');
-    const segment = this.session.segment;
-    const index = segment?.kind === 'station' ? segment.index : 0;
-    this.def = STATIONS[index];
-    this.phase = 0;
+    const segment = getSession(this).segment ?? { kind: 'station', index: 0 };
+    this.def = STATIONS[segment.index];
+    const rules = RHYTHM_RULES[this.def.id];
+    this.beginSegment(rules?.hint ?? 'hold SPACE or mouse button to work   ·   release to rest and recover');
+    this.rhythm = undefined;
+    this.skierg = this.wallBall = this.movement = undefined;
 
-    const weight = WEIGHTS[this.session.division][this.session.category][this.def.id];
-    const spec = [`${this.def.target} ${this.def.unit}`, weight, DIVISIONS[this.session.division].name].filter(Boolean);
+    this.venue = addVenue(this);
+    this.venue.setScreen(`STATION ${segment.index + 1} / ${RUN_COUNT}`, this.def.name.toUpperCase());
+    this.drawInfoPanel(!!rules);
 
-    this.add.text(LEFT, 92, this.def.name.toUpperCase(), textStyle(34, hex(COLORS.accent), { fontStyle: 'bold' }));
-    this.add.text(LEFT, 142, spec.join('   ·   '), textStyle(16));
-    this.add.text(LEFT, 166, 'Placeholder mechanic: the real mini-game comes in a later milestone.', textStyle(12, hex(COLORS.muted), { fontStyle: 'italic' }));
+    if (this.def.id === 'skierg') this.skierg = new SkiErgView(this);
+    else if (this.def.id === 'wallBalls') this.wallBall = new WallBallView(this, this.session.category === 'men' ? 3 : 2.7);
+    else this.movement = new MovementView(this, this.def.id, this.venue);
 
-    this.statusText = this.add.text(RIGHT, 88, '', textStyle(16, '#ffffff', { fontStyle: 'bold' })).setOrigin(1, 0);
-    this.progressText = this.add.text(RIGHT, BAR_Y - 24, '', textStyle(16)).setOrigin(1, 0);
-    this.gfx = this.add.graphics();
-
-    this.input.keyboard!.addCapture('SPACE');
+    if (rules) this.setupRhythm(rules);
+    else this.add.text(28, 200, 'Rhythm mini-game coming soon: hold to work for now', textStyle(12, '#c9ccd2', { fontStyle: 'italic' }));
+    this.strain = addStrainOverlay(this);
   }
 
-  update(_time: number, delta: number): void {
+  update(time: number, delta: number): void {
+    if (this.rhythm) this.updateRhythm(delta);
+    else this.updateHold(time, delta);
+    this.renderProgress();
+    this.strain(this.session.athlete.lactate, this.session.athlete.hr);
+  }
+
+  // ------------------------------------------------------------ hold-to-work
+
+  private updateHold(time: number, delta: number): void {
     const working = isHeld('Space') || this.input.activePointer.isDown;
     if (this.advance(delta, working ? STATION_WORK_EFFORT : STATION_REST_EFFORT)) return;
-    if (working) this.phase += (Math.min(delta, 100) / 1000) * CYCLE_HZ * Math.PI * 2;
+    this.movement?.update(this.session.progress / TIME_SCALE, this.session.progress / this.def.target, time / 1000);
+  }
 
+  // ------------------------------------------------------------ rhythm
+
+  private setupRhythm(rules: RhythmRules): void {
+    const level = (this.registry.get('stationTempo') as number | undefined) ?? DEFAULT_TEMPO;
+    const track = new BeatTrack(TEMPO_LEVELS[level].bpm, rules.shape, windowsFor(this.session.capacity, this.session.difficulty));
+    const input = new RhythmInput(
+      this.game.canvas,
+      (t) => this.onPress(t),
+      (t) => this.onRelease(t),
+    );
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => input.destroy());
+
+    const tempoBoxes = TEMPO_LEVELS.map((tempo, i) => {
+      const x = 54 + i * 56;
+      const box = this.add.rectangle(x, 178, 52, 30, COLORS.panel, 0.9).setStrokeStyle(1, COLORS.panelEdge);
+      const label = this.add.text(x, 178, `${tempo.name}\n${tempo.bpm}`, textStyle(11, '#f2f2f2', { align: 'center' })).setOrigin(0.5);
+      return { box, label };
+    });
+    this.rhythm = {
+      rules,
+      track,
+      combo: new Combo(),
+      lane: new RhythmLane(this, rules.labels, track.options.lookaheadMs),
+      input,
+      level,
+      tempoBoxes,
+      comboText: this.add.text(740, 446, '', textStyle(14, '#ffffff', { fontStyle: 'bold' })).setOrigin(1, 0.5),
+      clicked: new Set(),
+      sets: 0,
+      samples: [],
+    };
+    this.setTempo(level);
+
+    const kb = this.input.keyboard!;
+    const K = Phaser.Input.Keyboard.KeyCodes;
+    const onTap = (step: number) => (_key: Phaser.Input.Keyboard.Key, event: KeyboardEvent) => {
+      if (!event.repeat && this.rhythm) this.setTempo(this.rhythm.level + step);
+    };
+    for (const code of [K.W, K.UP]) kb.addKey(code).on('down', onTap(1));
+    for (const code of [K.S, K.DOWN]) kb.addKey(code).on('down', onTap(-1));
+    this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => {
+      if (this.rhythm && dy !== 0) this.setTempo(this.rhythm.level + (dy < 0 ? 1 : -1));
+    });
+  }
+
+  private updateRhythm(delta: number): void {
+    const r = this.rhythm!;
+    const now = performance.now();
+    if (AUTOPLAY) this.autoplay(now);
+    if (this.handle(r.track.update(now))) return;
+
+    const tempo = TEMPO_LEVELS[r.level];
+    const effort =
+      r.track.state === 'active'
+        ? tempo.effort - (r.combo.inFlow ? FLOW_EFFORT_SAVING : 0)
+        : r.track.state === 'countIn'
+          ? COUNT_IN_EFFORT
+          : STATION_REST_EFFORT;
+    if (this.tick(delta, effort)) return;
+    r.track.windows = windowsFor(this.session.capacity, this.session.difficulty);
+
+    // Metronome: schedule clicks as soon as their beats are known.
+    for (const t of r.track.countIn) this.scheduleClick(t, true);
+    for (const note of r.track.notes) this.scheduleClick(note.beat, false);
+
+    this.skierg?.update(delta, r.track.isDown, r.track.interval);
+    this.wallBall?.update(now, delta, r.track.isDown, r.track.interval);
+    r.lane.render(now, r.track, this.session.athlete.lactate);
+    r.comboText
+      .setText(r.combo.count > 1 ? `COMBO ${r.combo.count}${r.combo.inFlow ? '  ·  FLOW' : ''}` : '')
+      .setColor(r.combo.inFlow ? hex(COLORS.accent) : '#ffffff');
+  }
+
+  private onPress(t: number): void {
+    if (this.rhythm) this.handle(this.rhythm.track.press(t));
+  }
+
+  private onRelease(t: number): void {
+    const r = this.rhythm;
+    if (!r) return;
+    const throwing = r.track.state === 'active';
+    const events = r.track.release(t);
+    const note = events.find((e) => e.type === 'note');
+    // A released squat always throws; only a scored good rep reaches the target.
+    if (this.wallBall && throwing) {
+      const outcome = note && note.type === 'note' ? r.rules.score(note.note, r.track.windows) : undefined;
+      this.wallBall.throw(performance.now(), r.track.interval, !!outcome?.rep);
+    }
+    this.handle(events);
+  }
+
+  /** Applies track events. Returns true if the station finished (scene is leaving). */
+  private handle(events: TrackEvent[]): boolean {
+    const r = this.rhythm!;
+    for (const event of events) {
+      if (event.type === 'note') {
+        const outcome = r.rules.score(event.note, r.track.windows);
+        r.combo.record(outcome);
+        this.judge(outcome);
+        if (this.applyWork(outcome)) {
+          r.track.stop();
+          return true;
+        }
+      } else if (event.type === 'stray') {
+        r.combo.breakStreak();
+        this.popup('OFF BEAT', '#c9ccd2', 16);
+      } else if (event.type === 'setStart') {
+        r.sets++;
+        this.popup(`SET ${r.sets}`, '#ffffff', 18);
+      } else {
+        r.combo.breakStreak();
+        this.popup('RESTING', '#c9ccd2', 18);
+      }
+    }
+    return false;
+  }
+
+  private applyWork(outcome: StrokeOutcome): boolean {
+    const r = this.rhythm!;
+    const work = r.rules.repBased
+      ? outcome.rep
+        ? 1
+        : 0
+      : workPerStroke(this.def, this.session.difficulty, TIME_SCALE) *
+        outcome.quality *
+        this.session.capacity *
+        (r.combo.inFlow ? FLOW_WORK_BONUS : 1);
+    if (work <= 0) return false;
+    if (this.addWork(work)) return true;
+    if (this.skierg) {
+      r.samples.push([this.session.race.segmentElapsed, this.session.progress]);
+      if (r.samples.length > 6) r.samples.shift();
+      const [t0, m0] = r.samples[0];
+      const [t1, m1] = r.samples[r.samples.length - 1];
+      const split = m1 > m0 ? formatTime((500 * (t1 - t0)) / (m1 - m0)) : '--:--';
+      this.skierg.setMonitor(this.session.progress, split);
+    }
+    return false;
+  }
+
+  private judge(outcome: StrokeOutcome): void {
+    hitSound(outcome.grade);
+    this.rhythm!.lane.flash(outcome.grade);
+    this.popup(outcome.label, GRADE_COLORS[outcome.grade], outcome.grade === 'perfect' ? 22 : 18);
+  }
+
+  private autoplay(now: number): void {
+    const track = this.rhythm!.track;
+    if (track.state === 'resting') {
+      this.onPress(now);
+      this.onRelease(now);
+      return;
+    }
+    const held = track.heldNote;
+    if (track.isDown && held && now >= held.end) this.onRelease(held.end);
+    const next = track.notes.find((n) => n.pressedAt === undefined);
+    if (!track.isDown && next && now >= next.start) this.onPress(next.start);
+  }
+
+  private scheduleClick(t: number, countIn: boolean): void {
+    const clicked = this.rhythm!.clicked;
+    const key = Math.round(t);
+    if (clicked.has(key)) return;
+    clicked.add(key);
+    click(t, countIn);
+    if (clicked.size > 64) for (const k of [...clicked].slice(0, 32)) clicked.delete(k);
+  }
+
+  private setTempo(level: number): void {
+    const r = this.rhythm!;
+    r.level = Phaser.Math.Clamp(level, 0, TEMPO_LEVELS.length - 1);
+    r.track.bpm = TEMPO_LEVELS[r.level].bpm;
+    this.registry.set('stationTempo', r.level);
+    r.tempoBoxes.forEach(({ box, label }, i) => {
+      box.setFillStyle(i === r.level ? COLORS.accent : COLORS.panel, 0.9);
+      label.setColor(i === r.level ? '#000000' : '#f2f2f2');
+    });
+  }
+
+  // ------------------------------------------------------------ shared UI
+
+  private drawInfoPanel(rhythm: boolean): void {
+    const weight = WEIGHTS[this.session.division][this.session.category][this.def.id];
+    const spec = [`${this.def.target} ${this.def.unit}`, weight, DIVISIONS[this.session.division].name].filter(Boolean).join('  ·  ');
+    this.add.rectangle(16, 72, 300, rhythm ? 128 : 112, 0x0b0c0f, 0.8).setOrigin(0).setStrokeStyle(1, COLORS.panelEdge);
+    const name = this.add.text(28, 80, this.def.name.toUpperCase(), textStyle(24, hex(COLORS.accent), { fontStyle: 'bold' }));
+    if (name.width > 276) name.setFontSize(Math.floor((24 * 276) / name.width));
+    this.add.text(28, 112, spec, textStyle(13, '#c9ccd2'));
+    this.progressText = this.add.text(304, 130, '', textStyle(13, '#ffffff', { fontStyle: 'bold' })).setOrigin(1, 0);
+    this.progressBar = this.add.graphics();
+  }
+
+  private renderProgress(): void {
     const { progress } = this.session;
-    const t = progress / this.def.target;
+    const t = Math.min(1, progress / this.def.target);
     const decimals = this.def.unit === 'reps' || this.def.target >= 200 ? 0 : 1;
     this.progressText.setText(`${progress.toFixed(decimals)} / ${this.def.target} ${this.def.unit}`);
-    this.statusText.setText(working ? 'WORKING' : 'RESTING').setColor(working ? hex(COLORS.good) : hex(COLORS.muted));
-
-    const g = this.gfx.clear();
-    g.fillStyle(COLORS.floor).fillRect(LEFT - 20, FLOOR, RIGHT - LEFT + 40, 6);
-    this.drawStation(g, t, Math.sin(this.phase));
-    g.fillStyle(COLORS.panel).fillRect(LEFT, BAR_Y, RIGHT - LEFT, 20);
-    g.fillStyle(COLORS.accent).fillRect(LEFT, BAR_Y, (RIGHT - LEFT) * t, 20);
-    g.lineStyle(1, COLORS.panelEdge).strokeRect(LEFT, BAR_Y, RIGHT - LEFT, 20);
+    const g = this.progressBar.clear();
+    g.fillStyle(0x2c2f37).fillRect(28, 136, 170, 8);
+    g.fillStyle(COLORS.accent).fillRect(28, 136, 170 * t, 8);
   }
 
-  /** Station props plus the athlete, at progress t (0..1) and animation wave s (-1..1). */
-  private drawStation(g: Phaser.GameObjects.Graphics, t: number, s: number): void {
-    const up = (s + 1) / 2;
-    const travel = (margin: number) => LEFT + 20 + t * (RIGHT - LEFT - margin);
-    switch (this.def.id) {
-      case 'skierg': {
-        const mx = 440;
-        g.fillStyle(PROP).fillRect(mx, FLOOR - 170, 22, 170);
-        const handY = FLOOR - 150 + up * 80;
-        g.lineStyle(2, 0x8b919c).lineBetween(mx + 2, FLOOR - 160, mx - 6, handY);
-        this.drawFigure(g, { x: 400, crouch: up * 0.7, lean: 0.3 + up * 0.5, hands: { x: mx - 6, y: handY } });
-        break;
-      }
-      case 'sledPush': {
-        const x = travel(120);
-        g.fillStyle(PROP).fillRect(x + 46, FLOOR - 40, 56, 40);
-        g.lineStyle(4, 0x8b919c).lineBetween(x + 50, FLOOR - 40, x + 46, FLOOR - 78);
-        this.drawFigure(g, { x: x + s * 2, crouch: 0.55, lean: 1.5, hands: { x: x + 46, y: FLOOR - 76 } });
-        break;
-      }
-      case 'sledPull': {
-        const ax = RIGHT - 20;
-        const sx = LEFT + t * (ax - LEFT - 110);
-        const hands = { x: ax - 32 - up * 16, y: FLOOR - 72 + up * 12 };
-        g.fillStyle(PROP).fillRect(sx, FLOOR - 36, 56, 36);
-        g.lineStyle(2, 0xc8b88a).lineBetween(sx + 56, FLOOR - 20, hands.x, hands.y);
-        this.drawFigure(g, { x: ax, crouch: 0.3, lean: -0.9, hands });
-        break;
-      }
-      case 'burpeeBroadJump': {
-        const x = travel(60);
-        const down = Math.max(0, -s);
-        this.drawFigure(g, {
-          x,
-          crouch: down,
-          lean: down * 1.8,
-          hands: { x: x + 18 + down * 26, y: FLOOR - 62 + down * 58 },
-          lift: Math.max(0, s) * 28,
-        });
-        break;
-      }
-      case 'row': {
-        g.fillStyle(PROP).fillRect(330, FLOOR - 14, 250, 10);
-        g.fillCircle(590, FLOOR - 30, 26);
-        const hipX = 400 + up * 90;
-        this.drawFigure(g, {
-          x: hipX,
-          lean: 0.9 - up * 1.4,
-          hands: { x: 560 - up * 90 + 30, y: FLOOR - 58 },
-          seat: { hipY: FLOOR - 24, feetX: 540 },
-        });
-        break;
-      }
-      case 'farmersCarry': {
-        const x = travel(40);
-        const bob = s * 2;
-        g.fillStyle(PROP).fillRect(x - 2, FLOOR - 38 + bob, 16, 18);
-        this.drawFigure(g, { x, lean: 0.05, hands: { x: x + 6, y: FLOOR - 40 + bob } });
-        break;
-      }
-      case 'sandbagLunges': {
-        const x = travel(40);
-        const shoulders = { x: x + 1, y: FLOOR - 92 + up * 20 };
-        g.fillStyle(0xa08e62).fillRoundedRect(shoulders.x - 18, shoulders.y - 10, 36, 14, 5);
-        this.drawFigure(g, { x, crouch: up * 0.9, lean: 0.05, hands: { x: x + 10, y: shoulders.y } });
-        break;
-      }
-      case 'wallBalls': {
-        const wx = 600;
-        g.fillStyle(PROP).fillRect(wx, FLOOR - 250, 24, 250);
-        g.fillStyle(COLORS.accent).fillRect(wx - 6, FLOOR - 212, 6, 24);
-        const squat = Math.max(0, -s);
-        const flight = Math.max(0, s);
-        const ball = flight > 0 ? { x: 510 + flight * 80, y: FLOOR - 100 - flight * 100 } : { x: 520, y: FLOOR - 92 + squat * 20 };
-        this.drawFigure(g, { x: 480, crouch: squat, lean: 0.2, hands: flight > 0 ? { x: 500, y: FLOOR - 130 } : { x: ball.x - 6, y: ball.y } });
-        g.fillStyle(0x8f6b4a).fillCircle(ball.x, ball.y, 11);
-        break;
-      }
-    }
-  }
-
-  private drawFigure(g: Phaser.GameObjects.Graphics, pose: Pose): void {
-    const crouch = pose.crouch ?? 0;
-    const lean = pose.lean ?? 0;
-    const lift = pose.lift ?? 0;
-    const hipY = (pose.seat?.hipY ?? FLOOR - 52 + crouch * 22) - lift;
-    const shoulder = { x: pose.x + lean * 20, y: hipY - 40 + Math.abs(lean) * 8 };
-
-    g.lineStyle(7, COLORS.accent);
-    if (pose.seat) {
-      g.lineBetween(pose.x, hipY, (pose.x + pose.seat.feetX) / 2, hipY - 22);
-      g.lineBetween((pose.x + pose.seat.feetX) / 2, hipY - 22, pose.seat.feetX, FLOOR - 8);
-    } else {
-      const stride = 12 + crouch * 10;
-      g.lineBetween(pose.x, hipY, pose.x - stride, FLOOR - lift);
-      g.lineBetween(pose.x, hipY, pose.x + stride, FLOOR - lift);
-    }
-    g.lineBetween(pose.x, hipY, shoulder.x, shoulder.y);
-    g.lineStyle(5, COLORS.accent).lineBetween(shoulder.x, shoulder.y, pose.hands.x, pose.hands.y);
-    g.fillStyle(COLORS.accent).fillCircle(shoulder.x + lean * 5, shoulder.y - 15, 11);
+  /** Judgement text just above the note lane's hit line, where the player is looking. */
+  private popup(text: string, color: string, size: number): void {
+    const label = this.add
+      .text(150, STAGE.floorY - 18, text, textStyle(size, color, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }))
+      .setOrigin(0, 0.5);
+    this.tweens.add({ targets: label, y: label.y - 12, alpha: 0, duration: 650, ease: 'Cubic.out', onComplete: () => label.destroy() });
   }
 }

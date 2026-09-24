@@ -32,7 +32,7 @@ export const STATIONS: readonly StationDef[] = [
   { id: 'row', name: 'Rowing', target: 1000, unit: 'm', baseSeconds: 250, loads: { legs: 0.6, upper: 0.5, grip: 0.3, core: 0.3 } },
   { id: 'farmersCarry', name: 'Farmers Carry', target: 200, unit: 'm', baseSeconds: 120, loads: { grip: 1, core: 0.4, legs: 0.2 } },
   { id: 'sandbagLunges', name: 'Sandbag Lunges', target: 100, unit: 'm', baseSeconds: 240, loads: { legs: 1, core: 0.4 } },
-  { id: 'wallBalls', name: 'Wall Balls', target: 100, unit: 'reps', baseSeconds: 330, loads: { legs: 0.8, upper: 0.7, core: 0.3 } },
+  { id: 'wallBalls', name: 'Wall Balls', target: 100, unit: 'reps', baseSeconds: 375, loads: { legs: 0.8, upper: 0.7, core: 0.3 } },
 ];
 
 export const RUN_LOADS: Loads = { legs: 0.3, core: 0.1 };

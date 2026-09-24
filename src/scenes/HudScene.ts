@@ -57,7 +57,7 @@ export class HudScene extends Phaser.Scene {
     this.zonePill = this.add.rectangle(WIDTH - 40, 37, 40, 24, ZONE_COLORS[0]);
     this.zoneText = this.add.text(WIDTH - 40, 37, '', textStyle(14, '#000000', { fontStyle: 'bold' })).setOrigin(0.5);
 
-    this.add.rectangle(PANEL_X, PANEL_Y, 172, 216, COLORS.panel).setOrigin(0).setStrokeStyle(1, COLORS.panelEdge);
+    this.add.rectangle(PANEL_X, PANEL_Y, 172, 216, 0x0b0c0f, 0.82).setOrigin(0).setStrokeStyle(1, COLORS.panelEdge);
     this.add.text(PANEL_X + 12, PANEL_Y + 10, 'BODY', textStyle(12, muted, { fontStyle: 'bold' }));
     const labels = ['Energy', 'Lactate', ...MUSCLE_GROUPS.map((g) => g[0].toUpperCase() + g.slice(1))];
     labels.forEach((label, i) => this.add.text(PANEL_X + 12, this.barY(i) - 3, label, textStyle(12)));

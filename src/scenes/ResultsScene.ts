@@ -1,9 +1,10 @@
 import * as Phaser from 'phaser';
 import { DIVISIONS } from '../config/divisions';
+import { addVenue } from '../art/venue';
 import { STATIONS } from '../config/stations';
 import { formatClock, formatTime } from '../sim/format';
 import { loadPb, savePb } from '../storage';
-import { COLORS, WIDTH, hex, monoStyle, textStyle } from '../ui/theme';
+import { COLORS, HEIGHT, WIDTH, hex, monoStyle, textStyle } from '../ui/theme';
 import { getSession } from './flow';
 
 const ROW_H = 26;
@@ -19,15 +20,17 @@ export class ResultsScene extends Phaser.Scene {
     const session = getSession(this);
     const { runs, stations, roxzone, total } = session.race.summary();
     const muted = hex(COLORS.muted);
+    addVenue(this);
+    this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x07080a, 0.8).setOrigin(0);
 
     const previousPb = loadPb(session.division, session.category);
-    const isPb = !session.skipped && (previousPb === undefined || total < previousPb);
+    const isPb = !session.unofficial && (previousPb === undefined || total < previousPb);
     if (isPb) savePb(session.division, session.category, total);
 
     this.add.text(WIDTH / 2, 28, 'FINISH', textStyle(30, hex(COLORS.accent), { fontStyle: 'bold' })).setOrigin(0.5, 0);
     this.add.text(WIDTH / 2, 66, formatClock(total), monoStyle(52)).setOrigin(0.5, 0);
-    const pbLine = session.skipped
-      ? 'Segments were skipped, so this result does not count'
+    const pbLine = session.unofficial
+      ? 'Debug shortcuts were used, so this result does not count'
       : isPb || previousPb === undefined
         ? 'NEW PERSONAL BEST'
         : `PB ${formatClock(previousPb)}   (+${formatTime(total - previousPb)})`;

@@ -29,6 +29,18 @@ export abstract class SegmentScene extends Phaser.Scene {
     return this.leaving;
   }
 
+  /** Rhythm stations: moves the clock and body on by one frame without adding work. */
+  protected tick(deltaMs: number, effort: number): boolean {
+    if (!this.leaving) this.session.tick(raceDelta(deltaMs), effort);
+    return this.leaving;
+  }
+
+  /** Adds station work, leaving the scene if that finishes the station. */
+  protected addWork(amount: number): boolean {
+    if (!this.leaving && this.session.addWork(amount)) this.leave();
+    return this.leaving;
+  }
+
   private leave(): void {
     if (this.leaving) return;
     this.leaving = true;
