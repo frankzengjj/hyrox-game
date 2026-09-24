@@ -1,6 +1,10 @@
 # Hyrox Web Game — Brainstorm
 
-Status: early brainstorm, nothing decided yet. Open questions are at the bottom.
+Status: early brainstorm. Open questions are at the bottom.
+
+## Decisions
+
+- **2D** (decided). Top-down for the running track and Roxzone, side-view close-ups for stations. Built with Phaser + TypeScript + Vite. Start with geometric placeholders; the art style (pixel art vs. flat vector) is still open.
 
 ## The real thing (what we're simulating)
 
@@ -118,7 +122,7 @@ Leaning towards Phaser 3 + TS + Vite, with:
 
 ## Rough roadmap
 
-- **M0 — Skeleton**: Vite + Phaser + TS scaffold, scene flow (Menu → Run → Station → … → Results), race clock, splits screen, all with placeholder graphics.
+- **M0 — Skeleton** ✅: Vite + Phaser + TS scaffold, scene flow (Menu → Run → Roxzone → Station → … → Results), race clock, splits screen, athlete body model, placeholder graphics and a shared hold-to-work station mechanic.
 - **M1 — First fun**: running with pace/HR, athlete body model, and 2 real stations (SkiErg + Wall Balls) as a playable "mini race".
 - **M2 — Full race**: all 8 stations with basic mechanics, plus Roxzone.
 - **M3 — Race day**: AI heat, judges/no-reps, crowd, audio, art pass.
@@ -127,7 +131,7 @@ Leaning towards Phaser 3 + TS + Vite, with:
 ## Open questions
 
 1. **Feel**: arcade/party (mashing, quick laughs) or simulation (realistic pacing, strategy)? Or a hybrid, as sketched above?
-2. **Visuals**: 2D (top-down + side-view) or 3D?
+2. **Art style** for the 2D art pass: pixel art or flat vector?
 3. **Players**: single-player first? Is local or online multiplayer important?
 4. **Length**: is 10–15 minutes for a full race right?
 5. **Audience**: personal/for fun, or public release? HYROX is a trademark, so a public game should use an original name and no official logos.
