@@ -66,7 +66,8 @@ export class MenuScene extends Phaser.Scene {
 
     this.add.text(540, 262, 'CONTROLS', textStyle(12, muted, { fontStyle: 'bold' }));
     const controls: [string, string][] = [
-      ['Run', 'W / S or wheel: pace · SHIFT: surge'],
+      ['Run', 'step on the beat: A / D, ← / →, mouse L / R'],
+      ['', 'W / S or wheel: pace · SHIFT: surge'],
       ['Roxzone', 'hold W: jog'],
       ['SkiErg', 'rhythm: press on ●, release on ◆'],
       ['Wall Balls', 'W / S: tempo · stop playing to rest'],
@@ -74,10 +75,10 @@ export class MenuScene extends Phaser.Scene {
       ['Sound', 'M: mute'],
     ];
     controls.forEach(([label, value], i) => {
-      this.add.text(540, 284 + i * 21, label, textStyle(13, hex(COLORS.accent)));
-      this.add.text(622, 284 + i * 21, value, textStyle(13, '#d0d3d8'));
+      this.add.text(540, 284 + i * 19, label, textStyle(13, hex(COLORS.accent)));
+      this.add.text(622, 284 + i * 19, value, textStyle(13, '#d0d3d8'));
     });
-    this.add.text(540, 420, 'Tired athletes get tighter timing windows:\ngo out too hard and you pay later.', textStyle(12, muted));
+    this.add.text(540, 424, 'Tired athletes get tighter timing windows:\ngo out too hard and you pay later.', textStyle(12, muted));
 
     this.pbText = this.add.text(WIDTH / 2, 470, '', textStyle(14, muted)).setOrigin(0.5);
     const start = this.add

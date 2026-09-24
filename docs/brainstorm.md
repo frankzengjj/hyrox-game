@@ -5,6 +5,7 @@ Status: early brainstorm. Open questions are at the bottom.
 ## Decisions
 
 - **Realistic 2D** (decided). Everything is side view in a race-day arena. The athlete is a shaded cut-out rig (thighs, shins, arms, torso, head) posed with inverse kinematics, and all art is drawn in code on canvases. Runs scroll the arena past the camera, with a minimap for laps.
+- **Rhythm runs** (decided): tap left/right on every footstrike at the cadence of your pace level. Form (rolling step quality) scales speed and energy cost.
 - **Rhythm stations, and they should be hard** (decided). Each stroke or rep is a hold note: press on its start, release on its end, to a metronome. Tight timing windows get tighter as the athlete tires. You pick the tempo (faster = more work per minute and more lactate), stopping ends the set so you can rest, and at high lactate the notes fade before the hit line ("tunnel vision").
 
 ## The real thing (what we're simulating)
@@ -131,7 +132,6 @@ Leaning towards Phaser 3 + TS + Vite, with:
 
 ## Open questions
 
-1. **Running**: keep runs as pace selection, or add a cadence rhythm (tap on each footstrike) so runs are rhythm-based too?
-2. **Players**: single-player first? Is local or online multiplayer important?
-3. **Length**: is 10–15 minutes for a full race right?
-4. **Audience**: personal/for fun, or public release? HYROX is a trademark, so a public game should use an original name and no official logos.
+1. **Players**: single-player first? Is local or online multiplayer important?
+2. **Length**: is 10–15 minutes for a full race right?
+3. **Audience**: personal/for fun, or public release? HYROX is a trademark, so a public game should use an original name and no official logos.

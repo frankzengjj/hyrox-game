@@ -75,3 +75,13 @@ describe('Session rhythm API', () => {
     expect(session.race.splits.at(-1)).toMatchObject({ segment: { kind: 'station', index: 0 }, seconds: 10 });
   });
 });
+
+describe('Session rate scale', () => {
+  it('scales running speed (poor form covers less ground)', () => {
+    const full = new Session('open', 'men');
+    const sloppy = new Session('open', 'men');
+    full.advance(10, 0.6);
+    sloppy.advance(10, 0.6, 0.8);
+    expect(sloppy.progress).toBeCloseTo(full.progress * 0.8);
+  });
+});

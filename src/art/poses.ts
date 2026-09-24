@@ -104,9 +104,19 @@ function gaitFoot(p: number, g: GaitShape, x: number, floorY: number): { foot: V
   return { foot: vec(x + dx, ANKLE_Y(floorY) - Math.sin(0.6) * 22 * (1 - q) - dy), footAngle: lerp(0.6, -0.2, smooth(q)) };
 }
 
-/** Walk or run cycle at `phase` (cycles), moving at `speed` px/s. The hip stays at x. */
-export function locomotionPose(x: number, floorY: number, phase: number, speed: number, gait: Gait): Pose {
-  const f = gaitFrequency(speed, gait);
+/**
+ * Walk or run cycle at `phase` (cycles), moving at `speed` px/s. The hip stays at x.
+ * `frequency` (strides/s) overrides the natural cadence, e.g. to match a footstrike rhythm.
+ */
+export function locomotionPose(
+  x: number,
+  floorY: number,
+  phase: number,
+  speed: number,
+  gait: Gait,
+  frequency = gaitFrequency(speed, gait),
+): Pose {
+  const f = frequency;
   const run = gait === 'run';
   const stance = run ? clamp(0.42 - speed / 3000, 0.28, 0.42) : 0.62;
   const shape: GaitShape = {

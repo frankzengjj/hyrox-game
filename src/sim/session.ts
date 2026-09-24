@@ -34,18 +34,19 @@ export class Session {
   }
 
   /**
-   * Advance the current segment by dt race seconds at the given effort.
-   * Returns true when this step completed the segment.
+   * Advance the current segment by dt race seconds at the given effort. `rateScale` scales the
+   * resulting speed (running form). Returns true when this step completed the segment.
    */
-  advance(dt: number, effort: number): boolean {
+  advance(dt: number, effort: number, rateScale = 1): boolean {
     const segment = this.segment;
     if (!segment) return false;
 
     const capacity = this.capacity;
     this.rate =
-      segment.kind === 'station'
+      rateScale *
+      (segment.kind === 'station'
         ? stationRate(STATIONS[segment.index], this.difficulty, effort, capacity)
-        : runSpeed(effort, capacity);
+        : runSpeed(effort, capacity));
 
     // Stop the clock exactly at the line rather than at the end of the frame.
     const remaining = this.target - this.progress;

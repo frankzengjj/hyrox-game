@@ -41,3 +41,17 @@ export function workPerStroke(def: StationDef, difficulty: number, timeScale: nu
   const beatRaceSeconds = (60 / TEMPO_LEVELS[REFERENCE_TEMPO].bpm) * timeScale;
   return (def.target / (def.baseSeconds * difficulty)) * beatRaceSeconds;
 }
+
+/** Running form (rolling footstrike quality) → share of the chosen pace actually achieved. */
+export function formSpeed(form: number): number {
+  return 0.8 + 0.2 * form;
+}
+
+/** Sloppy footwork wastes energy: extra effort at poor form. */
+export function formWaste(form: number): number {
+  return 0.06 * (1 - form);
+}
+
+/** A long streak of clean steps: running gets cheaper. */
+export const STRIDE_FLOW_AT = 16;
+export const STRIDE_FLOW_SAVING = 0.04;

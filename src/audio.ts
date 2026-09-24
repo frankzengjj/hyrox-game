@@ -58,3 +58,13 @@ export function hitSound(grade: 'perfect' | 'good' | 'miss'): void {
   else if (grade === 'good') tone(now, 660, 0.09, 0.12, 'triangle');
   else tone(now, 140, 0.22, 0.2, 'sawtooth', 80);
 }
+
+/** Soft footstep thud on a footstrike beat (left and right pitched slightly apart). */
+export function footstep(atMs: number, left: boolean): void {
+  tone(atMs, left ? 170 : 150, 0.06, 0.2, 'sine', 70);
+}
+
+/** Scuff for a missed or stray step. */
+export function scuff(): void {
+  tone(performance.now(), 220, 0.08, 0.06, 'sawtooth', 110);
+}

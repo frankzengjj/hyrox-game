@@ -24,8 +24,8 @@ export abstract class SegmentScene extends Phaser.Scene {
    * Moves the race on by one frame at the given effort. Returns true once the segment is over,
    * after which the scene is on its way out and should not render the (next segment's) state.
    */
-  protected advance(deltaMs: number, effort: number): boolean {
-    if (!this.leaving && this.session.advance(raceDelta(deltaMs), effort)) this.leave();
+  protected advance(deltaMs: number, effort: number, rateScale = 1): boolean {
+    if (!this.leaving && this.session.advance(raceDelta(deltaMs), effort, rateScale)) this.leave();
     return this.leaving;
   }
 
