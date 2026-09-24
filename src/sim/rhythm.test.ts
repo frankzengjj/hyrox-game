@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BASE_WINDOWS, BeatTrack, type NoteShape, type TrackEvent, gradeOffset, windowsFor } from './rhythm';
+import { BASE_WINDOWS, BeatTrack, DEFAULT_TRACK_OPTIONS, type NoteShape, type TrackEvent, gradeOffset, windowsFor } from './rhythm';
 
 const SHAPE: NoteShape = { press: 0, release: 0.4 };
 const notesOf = (events: TrackEvent[]) => events.flatMap((e) => (e.type === 'note' ? [e.note] : []));
@@ -42,6 +42,15 @@ describe('BeatTrack', () => {
     track.press(2410);
     const [note] = notesOf(track.release(2630));
     expect(note).toMatchObject({ pressGrade: 'perfect', releaseOffset: -10, done: true });
+  });
+
+  it('counts in on the metronome beat for two-beat moves', () => {
+    const track = new BeatTrack(50, SHAPE, BASE_WINDOWS, { ...DEFAULT_TRACK_OPTIONS, countInSpacing: 0.5 });
+    track.press(0);
+    expect(track.countIn).toEqual([600, 1200, 1800]);
+    track.update(1850);
+    expect(track.notes[0].beat).toBe(2400);
+    expect(track.notes[1].beat).toBe(3600);
   });
 
   it('ignores presses outside every window as stray', () => {

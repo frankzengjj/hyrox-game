@@ -4,13 +4,14 @@ A 2D browser game where you race a full Hyrox-style fitness competition (8 × 1 
 
 Design notes and roadmap: [docs/brainstorm.md](docs/brainstorm.md).
 
-## Status: M1
+## Status: M2 (the whole race is rhythm-based)
 
 - **Realistic 2D look**: a shaded, jointed athlete (kit, shoes, headband) posed with inverse kinematics, in a race-day arena with lights, a big screen, a crowd, barrier boards and a rubber floor. All art is drawn in code; there are no image files.
 - **Full race loop**: Run → Roxzone → Station → Roxzone → … → Wall Balls → results with official-style splits and a personal best per division.
 - **Rhythm runs**: tap left/right on every footstrike. The cadence comes from your pace level (112 steps/min walking up to 188 surging), and the runner's feet land on the beat. Clean steps keep your form high; sloppy or missing steps cost up to 20% of your speed and waste energy, and a long clean streak ("in the zone") makes running cheaper. Side view with the arena scrolling past, lap gantries every 250 m and a track minimap.
-- **Rhythm stations (SkiErg, Wall Balls)**: each stroke or rep is a hold note on a metronome. The timing windows are tight and get tighter as you tire. You choose the tempo. Missed or rushed wall balls are no-reps, stopping ends the set so you can rest, and at high lactate the notes fade before the hit line.
-- **Other six stations**: realistic animations (sled push/pull, burpee broad jumps, rowing, farmers carry, lunges), but still hold-to-work until M2.
+- **Rhythm stations**: all eight stations are rhythm mini-games on a metronome, with tight timing windows that get tighter as you tire. You choose the tempo (faster = more work per minute, more lactate). Stop playing and the set ends so you can rest; play again for a count-in and a new set. At high lactate the notes fade before the hit line.
+  - **Hold notes** (press on ●, release on ◆): SkiErg, rowing (with the 1:2 drive-to-recovery ratio), burpee broad jumps (up too early = no-rep, chest not down), sandbag lunges (no-rep, knee not down) and wall balls (no-rep for a rushed or late throw).
+  - **Left/right taps**: sled push and sled pull build *momentum*, and a missed step stalls the sled. Farmers carry drains your *grip* as you walk (faster when your forearms are tired). Rest to recover it, or run out and drop the bells, which costs time re-gripping.
 - **Athlete body model**: heart-rate zones, lactate, energy, and fatigue per muscle group. The race clock runs about 6× real time, so an ~80 min race plays in ~13 min.
 
 ## Controls
@@ -19,8 +20,8 @@ Design notes and roadmap: [docs/brainstorm.md](docs/brainstorm.md).
 |---|---|
 | Run | step on the beat: `A`/`D`, `←`/`→`, or left/right click · `W`/`S`, `↑`/`↓` or mouse wheel: pace · hold `Shift`: surge |
 | Roxzone | hold `W` / `→`: jog |
-| SkiErg, Wall Balls | `Space` or mouse: press on ●, release on ◆ · `W`/`S`: tempo · stop playing to rest, press again for a new set |
-| Other stations | hold `Space` or mouse button: work · release: rest |
+| SkiErg, rowing, burpees, lunges, wall balls | `Space` or mouse: press on ●, release on ◆ · `W`/`S`: tempo · stop playing to rest, press again for a new set |
+| Sled push, sled pull, farmers carry | left/right on the beat (`A`/`D`, `←`/`→`, or left/right click) · `W`/`S`: tempo · stop to rest |
 | Anywhere | `M`: mute |
 
 ## Development
@@ -36,7 +37,7 @@ Debug URL options (combine them with `&`):
 
 - `?debug` enables `]` to skip the current segment. Races using any debug shortcut don't count as a PB.
 - `&speed=10` fast-forwards the race clock. Rhythm stations still play at real tempo, so their splits come out inflated.
-- `&autoplay` plays the rhythm stations and run steps perfectly.
+- `&autoplay` plays every run and station perfectly (and rests the farmers-carry grip).
 - `&gallery` shows every athlete pose, animated. Add `&strip=jog` for one movement at 8 phases, or `&t=0.5` to freeze time.
 
 ## Layout

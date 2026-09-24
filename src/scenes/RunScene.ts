@@ -184,6 +184,7 @@ export class RunScene extends SegmentScene {
         this.lane.flash(e.foot, 'miss');
         continue;
       }
+      if (e.type !== 'step') continue;
       const grade = e.note.grade ?? 'miss';
       this.lane.flash(e.note.foot, grade);
       if (grade === 'miss') {

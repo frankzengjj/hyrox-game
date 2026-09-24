@@ -55,9 +55,14 @@ export interface TrackOptions {
   lookaheadMs: number;
   /** Missing this many notes in a row ends the set (the athlete stops to rest). */
   restAfterMisses: number;
+  /**
+   * Count-in tick spacing as a fraction of the note interval. Moves that span two metronome
+   * beats count in on the beat (0.5) rather than at the slower note rate.
+   */
+  countInSpacing: number;
 }
 
-export const DEFAULT_TRACK_OPTIONS: TrackOptions = { countInBeats: 3, lookaheadMs: 1800, restAfterMisses: 2 };
+export const DEFAULT_TRACK_OPTIONS: TrackOptions = { countInBeats: 3, lookaheadMs: 1800, restAfterMisses: 2, countInSpacing: 1 };
 
 export type TrackEvent =
   | { type: 'note'; note: HoldNote }
@@ -172,12 +177,12 @@ export class BeatTrack {
   }
 
   private startSet(t: number): void {
-    const i = this.interval;
+    const tick = this.interval * this.options.countInSpacing;
     this.state = 'countIn';
     this.misses = 0;
     this.notes.length = 0;
-    this.countIn = Array.from({ length: this.options.countInBeats }, (_, k) => t + (k + 1) * i);
-    this.nextBeat = t + (this.options.countInBeats + 1) * i;
+    this.countIn = Array.from({ length: this.options.countInBeats }, (_, k) => t + (k + 1) * tick);
+    this.nextBeat = t + (this.options.countInBeats + 1) * tick;
   }
 
   private finish(note: HoldNote): TrackEvent[] {

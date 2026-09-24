@@ -16,7 +16,17 @@ export interface StepNote {
   done: boolean;
 }
 
-export type StepEvent = { type: 'step'; note: StepNote } | { type: 'stray'; foot: Foot };
+export type StepEvent =
+  | { type: 'step'; note: StepNote }
+  | { type: 'stray'; foot: Foot }
+  | { type: 'setStart' }
+  | { type: 'setEnd' };
+
+/** Stations play in sets: miss this many steps in a row and the athlete stops; tap to go again. */
+export interface StepSets {
+  restAfterMisses: number;
+  countInSteps: number;
+}
 
 const QUALITY: Record<Grade, number> = { perfect: 1, good: 0.8, miss: 0 };
 /** How fast form follows recent steps (per step). */
@@ -27,6 +37,10 @@ const STRAY_FORM_PENALTY = 0.06;
 const HISTORY_MS = 3000;
 
 export class StepTrack {
+  /** Runs are always active; stations start resting and play in sets. */
+  state: 'resting' | 'countIn' | 'active' = 'active';
+  /** Count-in tick times of the current set. */
+  countIn: number[] = [];
   /** Upcoming, unjudged notes, oldest first. */
   readonly notes: StepNote[] = [];
   windows: Windows;
@@ -39,6 +53,7 @@ export class StepTrack {
   private nextAt: number;
   private nextFoot: Foot = 'L';
   private nextId = 1;
+  private misses = 0;
 
   constructor(
     public cadence: number,
@@ -46,13 +61,14 @@ export class StepTrack {
     readonly lookaheadMs = 1500,
     windows: Windows = BASE_WINDOWS,
     form = 0.9,
+    readonly sets?: StepSets,
   ) {
     this.windows = windows;
     this.form = form;
     this.nextAt = startAt;
-    // Virtual strides before the first note so the gait is defined from the start.
-    this.beats.push({ foot: 'L', at: startAt - 2 * this.interval }, { foot: 'R', at: startAt - this.interval });
-    this.schedule(startAt);
+    this.addLeadIn(startAt);
+    if (sets) this.state = 'resting';
+    else this.schedule(startAt);
   }
 
   /** Milliseconds between footstrikes. */
@@ -61,19 +77,27 @@ export class StepTrack {
   }
 
   update(t: number): StepEvent[] {
+    if (this.state === 'resting') return [];
+    if (this.state === 'countIn' && t >= this.countIn[this.countIn.length - 1]) this.state = 'active';
     this.schedule(t);
     const events: StepEvent[] = [];
     for (const note of [...this.notes]) {
-      if (t > note.at + this.windows.good) {
-        note.grade = 'miss';
-        events.push(this.finish(note));
-      }
+      if (t <= note.at + this.windows.good) continue;
+      note.grade = 'miss';
+      const finished = this.finish(note);
+      events.push(...finished);
+      if (finished.some((e) => e.type === 'setEnd')) break;
     }
     while (this.beats.length > 4 && this.beats[1].at < t - HISTORY_MS) this.beats.shift();
     return events;
   }
 
   press(foot: Foot, t: number): StepEvent[] {
+    if (this.state === 'resting') {
+      this.startSet(t);
+      return [{ type: 'setStart' }];
+    }
+    if (this.state === 'countIn') return [];
     const note = this.notes.find((n) => n.foot === foot && Math.abs(t - n.at) <= this.windows.good);
     if (!note) {
       this.form = Math.max(0, this.form - STRAY_FORM_PENALTY);
@@ -82,7 +106,7 @@ export class StepTrack {
     }
     note.hitAt = t;
     note.grade = gradeOffset(t - note.at, this.windows);
-    return [this.finish(note)];
+    return this.finish(note);
   }
 
   /** Stride phase at t: 0 on a left footstrike beat, 0.5 on a right one. */
@@ -104,6 +128,22 @@ export class StepTrack {
     return [this.beats[i], this.beats[i + 1]];
   }
 
+  private startSet(t: number): void {
+    const count = this.sets?.countInSteps ?? 0;
+    this.state = 'countIn';
+    this.misses = 0;
+    this.notes.length = 0;
+    this.countIn = Array.from({ length: count }, (_, k) => t + (k + 1) * this.interval);
+    this.nextAt = t + (count + 1) * this.interval;
+    this.nextFoot = 'L';
+    this.addLeadIn(this.nextAt);
+  }
+
+  /** Virtual strides before the first note so the gait is defined from the start. */
+  private addLeadIn(firstAt: number): void {
+    this.beats.push({ foot: 'L', at: firstAt - 2 * this.interval }, { foot: 'R', at: firstAt - this.interval });
+  }
+
   private schedule(t: number): void {
     while (this.nextAt - this.lookaheadMs <= t) {
       const beat = { foot: this.nextFoot, at: this.nextAt };
@@ -114,13 +154,21 @@ export class StepTrack {
     }
   }
 
-  private finish(note: StepNote): StepEvent {
+  private finish(note: StepNote): StepEvent[] {
     note.done = true;
     this.notes.splice(this.notes.indexOf(note), 1);
     const grade = note.grade ?? 'miss';
     this.form += (QUALITY[grade] - this.form) * FORM_SMOOTHING;
     this.streak = grade === 'miss' ? 0 : this.streak + 1;
     this.bestStreak = Math.max(this.bestStreak, this.streak);
-    return { type: 'step', note };
+    this.misses = grade === 'miss' ? this.misses + 1 : 0;
+    const events: StepEvent[] = [{ type: 'step', note }];
+    if (this.sets && this.misses >= this.sets.restAfterMisses) {
+      this.state = 'resting';
+      this.notes.length = 0;
+      this.countIn = [];
+      events.push({ type: 'setEnd' });
+    }
+    return events;
   }
 }

@@ -126,7 +126,7 @@ Leaning towards Phaser 3 + TS + Vite, with:
 
 - **M0 — Skeleton** ✅: Vite + Phaser + TS scaffold, scene flow (Menu → Run → Roxzone → Station → … → Results), race clock, splits screen, athlete body model, placeholder graphics and a shared hold-to-work station mechanic.
 - **M1 — First fun** ✅: realistic 2D art (rig, arena, equipment), side-view runs, and rhythm mini-games for SkiErg and Wall Balls.
-- **M2 — Full race**: rhythm mini-games for the other six stations (they have realistic animations but still use hold-to-work).
+- **M2 — Full race** ✅: rhythm runs and rhythm mini-games for all eight stations (sled momentum, farmers-carry grip, no-reps for burpees and lunges).
 - **M3 — Race day**: AI heat, judges/no-reps, crowd, audio, art pass.
 - **M4 — Modes**: practice, doubles, PB ghost, leaderboard.
 

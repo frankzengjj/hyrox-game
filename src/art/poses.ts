@@ -290,8 +290,8 @@ export function burpeePose(x: number, floorY: number, phase: number): Pose {
 
 // ---------------------------------------------------------------- Farmers carry
 
-export function farmersPose(x: number, floorY: number, phase: number, speed: number): Pose {
-  const walk = locomotionPose(x, floorY, phase, speed, 'walk');
+export function farmersPose(x: number, floorY: number, phase: number, speed: number, frequency?: number): Pose {
+  const walk = locomotionPose(x, floorY, phase, speed, 'walk', frequency);
   const hip = vec(walk.hip.x, walk.hip.y + 3);
   const shoulder = shoulderOf(hip, 0.02);
   const sway = Math.sin(TAU * phase) * 2;

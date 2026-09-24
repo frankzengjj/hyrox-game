@@ -64,21 +64,21 @@ export class MenuScene extends Phaser.Scene {
     });
     this.stationWeights = STATIONS.map((_, i) => this.add.text(360, rowY(i), '', textStyle(14, muted)));
 
-    this.add.text(540, 262, 'CONTROLS', textStyle(12, muted, { fontStyle: 'bold' }));
+    this.add.text(490, 262, 'CONTROLS', textStyle(12, muted, { fontStyle: 'bold' }));
     const controls: [string, string][] = [
-      ['Run', 'step on the beat: A / D, ← / →, mouse L / R'],
+      ['Run', 'step on the beat: A/D, ←/→, mouse L/R'],
       ['', 'W / S or wheel: pace · SHIFT: surge'],
       ['Roxzone', 'hold W: jog'],
-      ['SkiErg', 'rhythm: press on ●, release on ◆'],
-      ['Wall Balls', 'W / S: tempo · stop playing to rest'],
-      ['Others', 'hold SPACE / mouse to work'],
+      ['Sleds, carry', 'left / right on the beat, same keys'],
+      ['Stations', 'SPACE / mouse: press ●, release ◆'],
+      ['', 'W / S: tempo · stop playing to rest'],
       ['Sound', 'M: mute'],
     ];
     controls.forEach(([label, value], i) => {
-      this.add.text(540, 284 + i * 19, label, textStyle(13, hex(COLORS.accent)));
-      this.add.text(622, 284 + i * 19, value, textStyle(13, '#d0d3d8'));
+      this.add.text(490, 284 + i * 19, label, textStyle(13, hex(COLORS.accent)));
+      this.add.text(584, 284 + i * 19, value, textStyle(13, '#d0d3d8'));
     });
-    this.add.text(540, 424, 'Tired athletes get tighter timing windows:\ngo out too hard and you pay later.', textStyle(12, muted));
+    this.add.text(490, 424, 'Tired athletes get tighter timing windows:\ngo out too hard and you pay later.', textStyle(12, muted));
 
     this.pbText = this.add.text(WIDTH / 2, 470, '', textStyle(14, muted)).setOrigin(0.5);
     const start = this.add
