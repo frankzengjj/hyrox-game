@@ -3,14 +3,58 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Pace Yourself: a rhythm fitness-race game. Eight 1 km runs and eight workout stations, played with keyboard and mouse."
+    />
     <title>Pace Yourself</title>
     <style>
-      html, body { margin: 0; height: 100%; background: #0b0c0e; overflow: hidden; }
-      #game { width: 100vw; height: 100vh; }
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #0b0c0e;
+        color: #8a8f98;
+        font: 13px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      }
+      #game {
+        flex: 1;
+        min-height: 0;
+      }
+      .controls {
+        margin: 0;
+        padding: 6px 16px 10px;
+        text-align: center;
+        text-wrap: balance;
+      }
+      .controls strong {
+        color: #ffd400;
+        font-weight: 600;
+      }
+      kbd {
+        padding: 1px 5px;
+        border: 1px solid #2c2f37;
+        border-radius: 4px;
+        background: #1b1d22;
+        color: #c9ccd2;
+        font: 12px ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      }
     </style>
   </head>
   <body>
     <div id="game"></div>
+    <p class="controls">
+      <strong>Keyboard and mouse game.</strong> Press <kbd>Space</kbd> or click Start. Runs: step on the beat with
+      <kbd>A</kbd>/<kbd>D</kbd> or left/right click. Stations: hold and release on the notes. <kbd>M</kbd> mutes.
+    </p>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
